@@ -170,61 +170,6 @@ exit();
 
 // Proceed with transaction if no duplicate
 $stmt = $pdo->prepare("INSERT INTO transactions (...) VALUES (...)");
-
-
-// Function to get consumption data filtered by technician
-function getTransactions($pdo) {
-    $stmt = $pdo->query("
-        SELECT DISTINCT processed_by 
-        FROM transactions 
-        WHERE processed_by IS NOT NULL AND processed_by != '' 
-        ORDER BY processed_by
-    ");
-    return $stmt->fetchAll(PDO::FETCH_COLUMN);
-}
-
-// Function: Get drop wire consumption joined with transactions
-function getDropWireConsumption($pdo, $technician = null) {
-    $query = "
-        SELECT dwc.*, t.account_number, t.serial_number, t.processed_by AS technician_name
-        FROM drop_wire_consumption AS dwc
-        JOIN transactions AS t ON dwc.account_number = t.account_number
-        WHERE 1=1
-    ";
-
-    $params = [];
-
-    if ($technician) {
-        $query .= " AND t.processed_by = ?";
-        $params[] = $technician;
-    }
-
-    $query .= " ORDER BY dwc.date DESC";
-
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
-
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// Main Execution
-try {
-    // Get selected technician from URL (e.g. ?transactions=SLI)
-    $selectedTech = $_GET['transactions'] ?? '';
-
-    // Get all technician options for dropdown
-    $transactions = getTransactions($pdo);
-
-    // Get filtered or all drop wire consumption
-    $consumptionData = getDropWireConsumption($pdo, $selectedTech);
-
-    // Total drop wire consumed
-    $totalConsumed = array_sum(array_column($consumptionData, 'drop_wire_consumed'));
-
-} catch (PDOException $e) {
-    die("Database error: " . $e->getMessage());
-}
-
 ?>
 
 <!DOCTYPE html>
@@ -894,131 +839,76 @@ try {
         </div>
     </div>
 <?php endif; ?>
-<div id="dropwire">
+<!-- Drop Wire Monitoring Tab -->
+<div id="dropwire" class="tab-content <?php echo $tab === 'dropwire' ? 'active' : ''; ?>">
     <div class="card">
         <div class="card-title">DROP WIRE MONITORING</div>
 
-        <div class="filter">
-            <form method="get" action="" id="technician-form">
-                <label for="technician">Select Technician:</label>
-<select name="technician" id="technician" onchange="this.form.submit()">
-                    <option value="">-- All Technicians --</option>
-                    <?php foreach ($transactions as $tech): ?>
-                        <option value="<?= htmlspecialchars($tech) ?>" 
-                            <?= $tech === $selectedTech ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($tech) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </form>
+        <!-- Technician Dropdown Filter -->
+        <div style="margin-bottom: 15px;">
+            <label for="technicianSelect">Select Technician:</label>
+            <select id="technicianSelect">
+                <option value="">-- All Technicians --</option>
+                <?php foreach ($technicians as $tech): ?>
+                    <option value="<?php echo htmlspecialchars($tech); ?>">
+                        <?php echo htmlspecialchars($tech); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
         </div>
 
-        <!-- Data Table -->
-        <table id="dropwire-table">
+        <!-- Drop Wire Consumption Table -->
+        <table id="dropwireConsumption" border="1" cellspacing="0" cellpadding="5">
             <thead>
                 <tr>
                     <th>Date</th>
+                    <th>Subscriber Name</th>
                     <th>Account Number</th>
                     <th>Serial Number</th>
-                    <th>Technician</th>
-                    <th>Wire Consumed (meters)</th>
+                    <th>Technician Name</th>
+                    <th>Drop Wire Consumed</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($consumptionData)): ?>
-                    <tr>
-                        <td colspan="6" class="text-center">No data found</td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($consumptionData as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['date']) ?></td>
-                        <td><?= htmlspecialchars($row['account_number']) ?></td>
-                        <td><?= htmlspecialchars($row['serial_number']) ?></td>
-                        <td><?= htmlspecialchars($row['technician_name']) ?></td>
-                        <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
-                        <td>
-                            <a href="edit_dropwire.php?id=<?= $row['id'] ?>">Edit</a>
-                        </td>
-                    </tr>
+                <?php if (!empty($dropwireData)): ?>
+                    <?php foreach ($dropwireData as $record): ?>
+                        <tr data-technician="<?php echo htmlspecialchars($record['technician_name']); ?>">
+    <td><?php echo htmlspecialchars($record['date']); ?></td>
+    <td><?php echo htmlspecialchars($record['subscriber_name']); ?></td>
+    <td><?php echo htmlspecialchars($record['account_number']); ?></td>
+    <td><?php echo htmlspecialchars($record['serial_number']); ?></td>
+    <td><?php echo htmlspecialchars($record['technician_name']); ?></td>
+    <td><?php echo htmlspecialchars($record['drop_wire_consumed']); ?></td>
+    <td>
+        <a href="edit_dropwire.php?id=<?php echo $record['id']; ?>">Edit</a>
+    </td>
+</tr>
                     <?php endforeach; ?>
+                <?php else: ?>
+                    <tr>
+                        <td colspan="7">No data available for the selected technician.</td>
+                    </tr>
                 <?php endif; ?>
             </tbody>
         </table>
 
-        <!-- Total -->
-        <div class="total">
-            Total Drop Wire Consumed: <?= number_format($totalConsumed, 2) ?> meters
+        <!-- Weekly Summary -->
+        <div id="weeklySummary" style="margin-top: 15px; font-weight: bold;">
+            Total Drop Wire Consumed: 
+            <?php 
+                // Ensure $dropwireData is not empty before attempting to calculate the total
+                if (!empty($dropwireData)) {
+                    $totalConsumed = array_sum(array_column($dropwireData, 'drop_wire_consumed'));
+                    echo $totalConsumed;
+                } else {
+                    echo "0"; // If no data, show 0
+                }
+            ?>
         </div>
     </div>
 </div>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-    loadData(); // Load data on page load
-    document.getElementById('technician').addEventListener('change', loadData); // Load data when technician is selected
-});
 
-function loadData() {
-    const tech = document.getElementById('technician').value;
-    let url = 'get_data.php?action=get_consumption';
-    if (tech) {
-        url += `&technician=${encodeURIComponent(tech)}`;
-    }
 
-    const tableBody = document.getElementById('table-body');
-    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Loading data...</td></tr>';
-
-    fetch(url)
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                if (data.data.length > 0) {
-                    renderTable(data.data); // Render the table with the data
-                    updateTotal(data.totalConsumed); // Update the total consumed value
-                } else {
-                    tableBody.innerHTML = '<tr><td colspan="6" class="text-center">No records found</td></tr>';
-                    document.getElementById('total-span').textContent = '0';
-                }
-            } else {
-                tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading data</td></tr>';
-                document.getElementById('total-span').textContent = '0';
-            }
-        })
-        .catch(err => {
-            console.error('Fetch error:', err);
-            tableBody.innerHTML = '<tr><td colspan="6" class="text-center">Error loading data</td></tr>';
-        });
-}
-
-function renderTable(data) {
-    const tableBody = document.getElementById('table-body');
-    tableBody.innerHTML = ''; // Clear any existing rows
-
-    data.forEach(row => {
-        const tr = document.createElement('tr');
-        
-        tr.innerHTML = `
-            <td>${formatDate(row.date)}</td>
-            <td>${row.account_number}</td>
-            <td>${row.serial_number}</td>
-            <td>${row.technician_name}</td>
-            <td>${row.drop_wire_consumed.toFixed(2)}</td>
-            <td><a href="edit_dropwire.php?id=${row.id}">Edit</a></td>
-        `;
-        
-        tableBody.appendChild(tr);
-    });
-}
-
-function updateTotal(total) {
-    document.getElementById('total-span').textContent = total.toFixed(2);
-}
-
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(); // Format date as per your locale
-}
-</script>
 </body>
 </html>
