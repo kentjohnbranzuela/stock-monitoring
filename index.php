@@ -923,26 +923,25 @@ try {
 <?php endif; ?>
 <div id="dropwire">
     <div class="card">
-        <div class="card-title">DROP WIRE MONITORING</div>
-
-        <div class="filter">
-            <form method="get" id="technician-form">
-                <label for="technician">Select Technician:</label>
-                <select name="transactions" id="technician" onchange="this.form.submit()">
-                    <option value="">-- All Technicians --</option>
-                    <?php foreach ($transactions as $tech): ?>
-                        <option value="<?= htmlspecialchars($tech) ?>" 
-                            <?= $tech === $selectedTech ? 'selected' : '' ?>>
+        <div class="card-header">
+            <h2>DROP WIRE MONITORING</h2>
+            <form method="get" action="<?= $_SERVER['PHP_SELF'] ?>" id="technician-form">
+                <label>Select Technician:
+                    <select name="technician">
+                        <option value="">-- All Technicians --</option>
+                        <?php foreach ($transactions as $tech): ?>
+                        <option value="<?= htmlspecialchars($tech) ?>"
+                            <?= isset($_GET['technician']) && $_GET['technician'] === $tech ? 'selected' : '' ?>>
                             <?= htmlspecialchars($tech) ?>
                         </option>
-                    <?php endforeach; ?>
-                </select>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
             </form>
         </div>
 
-        <!-- Data Table -->
         <table id="dropwire-table">
-            <thead>
+            <thead style="display: table-header-group; background: #f8f9fa;">
                 <tr>
                     <th>Date</th>
                     <th>Account Number</th>
@@ -954,29 +953,26 @@ try {
             </thead>
             <tbody>
                 <?php if (empty($consumptionData)): ?>
-                    <tr>
-                        <td colspan="6" class="text-center">No data found</td>
-                    </tr>
+                <tr>
+                    <td colspan="6">No data found</td>
+                </tr>
                 <?php else: ?>
-                    <?php foreach ($consumptionData as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['date']) ?></td>
-                        <td><?= htmlspecialchars($row['account_number']) ?></td>
-                        <td><?= htmlspecialchars($row['serial_number']) ?></td>
-                        <td><?= htmlspecialchars($row['technician_name']) ?></td>
-                        <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
-                        <td>
-                            <a href="edit_dropwire.php?id=<?= $row['id'] ?>">Edit</a>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
+                <?php foreach ($consumptionData as $row): ?>
+                <tr>
+                    <td><?= htmlspecialchars($row['date']) ?></td>
+                    <td><?= htmlspecialchars($row['account_number']) ?></td>
+                    <td><?= htmlspecialchars($row['serial_number']) ?></td>
+                    <td><?= htmlspecialchars($row['technician_name']) ?></td>
+                    <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
+                    <td><a href="edit_dropwire.php?id=<?= $row['id'] ?>">Edit</a></td>
+                </tr>
+                <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
         </table>
-
-        <!-- Total -->
-        <div class="total">
-            Total Drop Wire Consumed: <?= number_format($totalConsumed, 2) ?> meters
+        
+        <div class="card-footer">
+            Total: <?= number_format($totalConsumed, 2) ?> meters
         </div>
     </div>
 </div>
