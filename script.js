@@ -795,3 +795,4 @@ function toggleEditMode(row) {
         editButton.textContent = isEditing ? 'Save' : 'Edit';
     }
 }
+document.querySelector('#dropwire-table thead')?.remove(); // Example of bad JS

@@ -441,3 +441,6 @@ a {
 a:hover {
     text-decoration: underline;
 }
+#dropwire-table thead { display: none; }
+#dropwire-table thead { display: table-header-group !important; }
+    #dropwire-table th { display: table-cell !important; }
