@@ -1,0 +1,48 @@
+Array
+(
+    [0] => Array
+        (
+            [transaction_id] => undefined
+            [account_number] => 
+            [serial_number] => 
+            [status] => ACTIVATED
+            [last_realesby] => Technician1
+        )
+
+    [1] => Array
+        (
+            [transaction_id] => undefined
+            [account_number] => 
+            [serial_number] => 
+            [status] => ACTIVATED
+            [last_realesby] => Technician1
+        )
+
+    [2] => Array
+        (
+            [transaction_id] => undefined
+            [account_number] => 
+            [serial_number] => 
+            [status] => ACTIVATED
+            [last_realesby] => Technician1
+        )
+
+    [3] => Array
+        (
+            [transaction_id] => undefined
+            [account_number] => SampleAccount
+            [serial_number] => SampleSerial
+            [status] => ACTIVATED
+            [last_realesby] => Technician1
+        )
+
+    [4] => Array
+        (
+            [transaction_id] => undefined
+            [account_number] => 123123123123
+            [serial_number] => 48575443666BC4B1
+            [status] => ACTIVATED
+            [last_realesby] => Technician1
+        )
+
+)

@@ -1,0 +1,158 @@
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+Received data: [{"transaction_id":"undefined","account_number":"","serial_number":"","status":"ACTIVATED","last_realesby":"Technician1"},{"transaction_id":"undefined","account_number":"","serial_number":"","status":"ACTIVATED","last_realesby":"Technician1"},{"transaction_id":"undefined","account_number":"","serial_number":"","status":"ACTIVATED","last_realesby":"Technician1"},{"transaction_id":"undefined","account_number":"SampleAccount","serial_number":"SampleSerial","status":"ACTIVATED","last_realesby":"Technician1"},{"transaction_id":"undefined","account_number":"","serial_number":"48575443666BC4B1","status":"ACTIVATED","last_realesby":"Technician1"}]
+Transaction committed successfully.
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID undefined: Not found in database
+ID 9: Updated successfully. Changes: {"account_number":" \u2192 12315345646","status":" \u2192 ACTIVATED"}
+ID 8: Updated successfully. Changes: {"status":" \u2192 ACTIVATED"}
+ID 7: Updated successfully. Changes: {"status":" \u2192 ACTIVATED"}
+ID 6: Updated successfully. Changes: {"status":" \u2192 ACTIVATED"}
+ID 4: Updated successfully. Changes: {"status":" \u2192 ACTIVATED"}
+ID 5: Updated successfully. Changes: {"last_realesby":"SampleRealesBy \u2192 "}
+ID 3: Updated successfully. Changes: {"status":" \u2192 ACTIVATED"}
+ID 9: No changes detected
+ID 8: No changes detected
+ID 7: No changes detected
+ID 6: No changes detected
+ID 4: No changes detected
+ID 5: No changes detected
+ID 3: No changes detected
+ID 9: No changes detected
+ID 8: No changes detected
+ID 7: No changes detected
+ID 6: No changes detected
+ID 4: No changes detected
+ID 5: No changes detected
+ID 3: No changes detected
+ID 9: No changes detected
+ID 8: No changes detected
+ID 7: No changes detected
+ID 6: No changes detected
+ID 4: No changes detected
+ID 5: No changes detected
+ID 3: No changes detected
+ID 9: No changes detected
+ID 8: No changes detected
+ID 7: No changes detected
+ID 6: No changes detected
+ID 4: No changes detected
+ID 5: No changes detected
+ID 3: No changes detected
+ID 9: No changes detected
+ID 8: Updated successfully. Changes: {"account_number":" \u2192 312313123"}
+ID 7: No changes detected
+ID 6: No changes detected
+ID 4: No changes detected
+ID 5: No changes detected
+ID 3: No changes detected
+ID 9: No changes detected
+ID 8: No changes detected
+ID 7: No changes detected
+ID 6: No changes detected
+ID 4: No changes detected
+ID 5: No changes detected
+ID 3: No changes detected
