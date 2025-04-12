@@ -730,3 +730,47 @@ a:hover {
     color: #ddd;
     text-decoration: none;
 }
+ .form-group input, .form-group select, .form-group textarea {
+        height: 36px; /* Standard input height */
+        padding: 8px; /* Padding for inputs */
+        font-size: 14px; /* Set a consistent font size */
+        margin-bottom: 10px; /* Space below the input fields */
+        border-radius: 4px; /* Rounded corners */
+        border: 1px solid #ccc; /* Border for inputs */
+        width: 90%; /* Full width of the container */
+    }
+
+    .form-group textarea {
+        height: 100px; /* Taller height for textareas */
+        padding: 8px;
+        resize: vertical; /* Allow textarea to resize vertically */
+    }
+
+    .form-row {
+        margin-bottom: 20px; /* Space between rows */
+    }
+
+    .form-group label {
+        margin-bottom: 6px; /* Space between label and input */
+        font-weight: bold;
+    }
+
+    .btn {
+        padding: 10px 20px; /* Button padding */
+        font-size: 16px; /* Font size for buttons */
+        border-radius: 5px; /* Rounded button corners */
+    }
+
+    .btn-primary {
+        background-color: #007bff; /* Blue button */
+        color: white;
+    }
+
+    .btn-success {
+        background-color: #28a745; /* Green button */
+        color: white;
+    }
+
+    .btn-sm {
+        font-size: 14px; /* Smaller font size for small buttons */
+    }

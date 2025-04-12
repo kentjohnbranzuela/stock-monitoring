@@ -1,3 +1,4 @@
+ 
  function switchTab(tabId) {
             window.location.href = `index.php?tab=${tabId}`;
         }
@@ -910,3 +911,5 @@ document.getElementById('serial-number').addEventListener('change', function () 
             .catch(err => console.error('Fetch error:', err));
     }
 });
+
+   

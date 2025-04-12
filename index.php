@@ -49,64 +49,6 @@ $stmt = $pdo->prepare($query);
 $stmt->execute($params);
 $reportData = $stmt->fetchAll();
 
-// Handle form submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['add_transaction'])) {
-        $trans_date = $_POST['trans_date'];
-        $item_code = $_POST['item_code'];
-        $trans_type = $_POST['trans_type'];
-        $processed_by = $_POST['processed_by'];
-        $notes = $_POST['notes'];
-        $released_by = $_POST['released_by']; // 🆕 Get released_by from form
-
-        // Get quantity either from count of serials or quantity field
-        $serials = isset($_POST['serial_numbers']) ? $_POST['serial_numbers'] : [];
-        $isMultiple = count($serials) > 0;
-
-        $stmt = $pdo->prepare("INSERT INTO transactions 
-            (transaction_date, item_code, transaction_type, quantity, processed_by, notes, serial_number, last_realesby) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-
-        if ($isMultiple) {
-            foreach ($serials as $serial) {
-                $stmt->execute([
-                    $trans_date,
-                    $item_code,
-                    $trans_type,
-                    1, // 1 per serial
-                    $processed_by,
-                    $notes,
-                    $serial,
-                    $released_by // 🆕 Save released_by as last_realesby
-                ]);
-            }
-            $qty = count($serials);
-        } else {
-            // Single transaction
-            $qty = $_POST['quantity'];
-            $stmt->execute([
-                $trans_date,
-                $item_code,
-                $trans_type,
-                $qty,
-                $processed_by,
-                $notes,
-                !empty($_POST['serial_number']) ? $_POST['serial_number'] : NULL,
-                $released_by // 🆕 Save released_by as last_realesby
-            ]);
-        }
-
-        // Update stock
-        $change = $trans_type === 'in' ? $qty : -$qty;
-        $stmt = $pdo->prepare("UPDATE items SET current_stock = current_stock + ? WHERE item_code = ?");
-        $stmt->execute([$change, $item_code]);
-
-        header("Location: index.php?success=Transaction added successfully");
-        exit();
-    }
-
-    // ... your add_item part remains unchanged
-}
 
 
 // Get current tab
@@ -283,7 +225,6 @@ if (isset($_GET['ajax'])) {
     echo json_encode(array_values($filtered));
     exit;
 }
-$releasedUsers = $pdo->query("SELECT name FROM released_by_users WHERE is_active = TRUE ORDER BY name")->fetchAll();
 
 ?>
 
@@ -295,6 +236,8 @@ $releasedUsers = $pdo->query("SELECT name FROM released_by_users WHERE is_active
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <script src="script.js"></script>
+    <script src="java.js"></script>
+    <script src="path/to/your/script.js"></script>
     <script>
   const phpSelf = "<?= $_SERVER['PHP_SELF'] ?>";
 </script>
@@ -332,101 +275,16 @@ $releasedUsers = $pdo->query("SELECT name FROM released_by_users WHERE is_active
 
         </div>
         
-        <!-- Dashboard Tab -->
-        <div id="dashboard" class="tab-content <?php echo $tab === 'dashboard' ? 'active' : ''; ?>">
-    <div class="dashboard">
-        <div class="card">
-            <div class="card-title">STOCK MOVEMENT</div>
-            <form method="POST" action="index.php">
-                <input type="hidden" name="add_transaction" value="1">
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Date</label>
-                        <input type="datetime-local" name="trans_date" value="<?php echo date('Y-m-d\TH:i'); ?>" required>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Item</label>
-                        <select name="item_code" required>
-                            <option value="">Select Item</option>
-                            <?php foreach ($items as $item): ?>
-                                <option value="<?php echo htmlspecialchars($item['item_code']); ?>">
-                                    <?php echo htmlspecialchars($item['description']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Transaction Type</label>
-                        <select name="trans_type" required>
-                            <option value="in">Stock In (Delivery)</option>
-                            <option value="out">Stock Out</option>
-                            <option value="adjust">Adjustment</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Quantity</label>
-                        <input type="number" name="quantity" id="quantityInput" min="1" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-    <label>Scan Serial Numbers</label>
-    <div id="serial-wrapper">
-        <input type="text" name="serial_numbers[]" class="serial-input" placeholder="Scan serial...">
-    </div>
-    <button type="button" onclick="addSerialInput()" class="btn btn-sm btn-primary">Add Another</button>
-</div>
-
-                <div class="form-group">
-                    <label>Processed By</label>
-                    <select name="processed_by" required>
-                        <option value="">Select Processor</option>
-                        <?php 
-                        $processors = $pdo->query("SELECT * FROM processors WHERE is_active = TRUE ORDER BY name")->fetchAll();
-                        foreach ($processors as $processor): ?>
-                            <option value="<?= htmlspecialchars($processor['name']) ?>">
-                                <?= htmlspecialchars($processor['name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="form-group">
-    <label>Released By</label>
-   <select name="released_by" required>
-    <option value="">Select Released By</option>
-    <?php 
-    $releasedUsers = $pdo->query("SELECT name FROM released_by_users ORDER BY name")->fetchAll();
-    foreach ($releasedUsers as $user): ?>
-        <option value="<?= htmlspecialchars($user['name']) ?>">
-            <?= htmlspecialchars($user['name']) ?>
-        </option>
-    <?php endforeach; ?>
-</select>
-
-</div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Notes</label>
-                        <textarea name="notes" rows="2"></textarea>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-success">RECORD TRANSACTION</button>
-            </form>
-        </div>
-
+        
                 
                 <div class="card">
-                    <div class="card-title">CURRENT STOCK LEVELS</div>
+                    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+    <span>CURRENT STOCK LEVELS</span>
+    <!-- Withdrawal Button positioned at the far right -->
+    <button onclick="window.location.href='stock_movement.php?type=withdrawal'" class="btn btn-danger">Withdrawal</button>
+</div>
+
+                    
                     <div class="current-stock">
                         Total Items: <span id="totalItems"><?php echo $summary['total_items']; ?></span> | 
                         Low Stock: <span id="lowStock" class="low-stock"><?php echo $summary['low_stock']; ?></span> | 
@@ -1145,35 +1003,37 @@ function hideAddProcessorModal() {
             </div>
 
             <table id="dropwire-table">
-                <thead style="display: table-header-group; background: #f8f9fa;">
-                    <tr>
-                        <th>Date</th>
-                        <th>Account Number</th>
-                        <th>Serial Number</th>
-                        <th>Technician</th>
-                        <th>Wire Consumed (meters)</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($consumptionData)): ?>
-                    <tr>
-                        <td colspan="6">No data found</td>
-                    </tr>
-                    <?php else: ?>
-                    <?php foreach ($consumptionData as $row): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($row['date']) ?></td>
-                        <td><?= htmlspecialchars($row['account_number']) ?></td>
-                        <td><?= htmlspecialchars($row['serial_number']) ?></td>
-                        <td><?= htmlspecialchars($row['technician_name']) ?></td>
-                        <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
-                       <td><a href="#" class="edit-button" data-id="<?= $row['id'] ?>">Edit</a></td>
-                    </tr>
-                    <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+    <thead style="display: table-header-group; background: #f8f9fa;">
+        <tr>
+            <th>Date</th>
+            <th>Account Number</th>
+            <th>Serial Number</th>
+            <th>Technician</th>
+            <th>Wire Consumed (meters)</th>
+            <th>Reel Number</th> <!-- ✅ New column -->
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        <?php if (empty($consumptionData)): ?>
+        <tr>
+            <td colspan="7">No data found</td> <!-- Updated colspan to 7 -->
+        </tr>
+        <?php else: ?>
+        <?php foreach ($consumptionData as $row): ?>
+        <tr>
+            <td><?= htmlspecialchars($row['date']) ?></td>
+            <td><?= htmlspecialchars($row['account_number']) ?></td>
+            <td><?= htmlspecialchars($row['serial_number']) ?></td>
+            <td><?= htmlspecialchars($row['technician_name']) ?></td>
+            <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
+            <td><?= htmlspecialchars($row['reel_number']) ?></td> <!-- ✅ New data field -->
+            <td><a href="#" class="edit-button" data-id="<?= $row['id'] ?>">Edit</a></td>
+        </tr>
+        <?php endforeach; ?>
+        <?php endif; ?>
+    </tbody>
+</table>
 
             <div class="card-footer">
                 Total: <?= number_format($totalConsumed, 2) ?> meters
@@ -1498,6 +1358,65 @@ function addSerialInput() {
     wrapper.appendChild(document.createElement('br'));
     wrapper.appendChild(input);
 }
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('edit-button')) {
+        const row = e.target.closest('tr');
+        const reelCell = row.children[4]; // 5th cell = reel_number
+        const currentReel = reelCell.textContent.trim();
+
+        // Replace cell content with input
+        reelCell.innerHTML = `<input type="text" class="reel-input" value="${currentReel}">`;
+
+        e.target.textContent = 'Save';
+        e.target.classList.remove('edit-button');
+        e.target.classList.add('save-button');
+    }
+
+    if (e.target.classList.contains('save-button')) {
+        const row = e.target.closest('tr');
+        const id = e.target.dataset.id;
+        const newReel = row.querySelector('.reel-input').value;
+
+        fetch('update_reel.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `id=${encodeURIComponent(id)}&reel_number=${encodeURIComponent(newReel)}`
+        })
+        .then(res => res.text())
+        .then(response => {
+            if (response === 'success') {
+                row.children[4].textContent = newReel;
+                e.target.textContent = 'Edit';
+                e.target.classList.remove('save-button');
+                e.target.classList.add('edit-button');
+            } else {
+                alert('Failed to update.');
+            }
+        });
+    }
+});
+  document.addEventListener('DOMContentLoaded', function () {
+        const itemSelect = document.getElementById('item-select');
+        const reelField = document.getElementById('reel-field');
+        const reelInput = document.getElementById('reel_number_input');
+
+        // Event listener for when the user selects an item
+        itemSelect.addEventListener('change', function () {
+            const selectedOption = itemSelect.options[itemSelect.selectedIndex];
+            const description = selectedOption.getAttribute('data-description')?.toUpperCase() || '';
+
+            // Show reel number input if the selected item is a Drop Cable
+            if (description.includes('DROP CABLE')) {
+                reelField.style.display = 'block';
+            } else {
+                reelField.style.display = 'none';
+                reelInput.value = ''; // Clear the value when it’s hidden
+            }
+        });
+    });
+    
     </script>
 </body>
 </html>
