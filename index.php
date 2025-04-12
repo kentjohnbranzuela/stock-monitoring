@@ -998,7 +998,7 @@ if (isset($_GET['ajax'])) {
 
             <label>Account Number: <input type="text" id="account-number" readonly></label>
             <label>Processed By: <input type="text" id="processed-by" readonly></label>
-            <label>Transaction Date: <input type="date" id="transaction-date" readonly></label>
+            <label>Transaction Date: <input type="date" id="transaction-date"></label> <!-- Editable now -->
             <label>Drop Wire Consumed: <input type="number" step="0.01" id="drop-wire" required></label>
 
             <button type="submit" style="margin-top: 0.5rem;">Submit</button>
@@ -1086,6 +1086,49 @@ if (isset($_GET['ajax'])) {
         </div>
     </div>
     <script>
+        document.getElementById("create-form").addEventListener("submit", function (e) {
+    e.preventDefault(); // Prevent default form behavior
+
+    const serial = document.getElementById("serial-number").value;
+    const account = document.getElementById("account-number").value;
+    const processedBy = document.getElementById("processed-by").value;
+    const transactionDate = document.getElementById("transaction-date").value;
+    const dropWire = document.getElementById("drop-wire").value;
+
+    if (!serial || !account || !processedBy || !transactionDate || !dropWire) {
+        alert("Please fill in all required fields.");
+        return;
+    }
+
+    fetch("save_dropwire.php", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            serial_number: serial,
+            account_number: account,
+            processed_by: processedBy,
+            transaction_date: transactionDate,
+            drop_wire_consumed: dropWire
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("Drop wire record saved successfully!");
+            document.getElementById("create-modal").style.display = "none";
+            // Optionally reload the table data
+            location.reload(); // refresh to show the new record
+        } else {
+            alert("Failed to save. Please try again.");
+        }
+    })
+    .catch(error => {
+        console.error("Error saving drop wire record:", error);
+        alert("An error occurred.");
+    });
+});
       document.getElementById('serial-number').addEventListener('change', function () {
     const serial = this.value;
 
@@ -1117,23 +1160,23 @@ document.querySelector(".close-btn").addEventListener("click", () => {
     document.getElementById("create-modal").style.display = "none";
 });
 
-document.getElementById("account-number").addEventListener("change", function () {
-    const accountNumber = this.value;
-    if (!accountNumber) return;
+// document.getElementById("account-number").addEventListener("change", function () {
+//     const accountNumber = this.value;
+//     if (!accountNumber) return;
 
-    fetch('get_transaction_info.php?account_number=' + encodeURIComponent(accountNumber))
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                document.getElementById("serial-number").value = data.serial_number;
-                document.getElementById("processed-by").value = data.processed_by;
-                document.getElementById("transaction-date").value = data.transaction_date;
-            } else {
-                alert('Transaction data not found.');
-            }
-        })
-        .catch(() => alert('Error fetching data.'));
-});
+//     fetch('get_transaction_info.php?account_number=' + encodeURIComponent(accountNumber))
+//         .then(res => res.json())
+//         .then(data => {
+//             if (data.success) {
+//                 document.getElementById("serial-number").value = data.serial_number;
+//                 document.getElementById("processed-by").value = data.processed_by;
+//                 document.getElementById("transaction-date").value = data.transaction_date;
+//             } else {
+//                 alert('Transaction data not found.');
+//             }
+//         })
+//         .catch(() => alert('Error fetching data.'));
+// });
         
       document.addEventListener('DOMContentLoaded', function () {
     const technicianDropdown = document.querySelector('#technician-form select[name="technician"]');
