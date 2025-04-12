@@ -52,48 +52,62 @@ $reportData = $stmt->fetchAll();
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['add_transaction'])) {
-        // Add transaction
-      $stmt = $pdo->prepare("INSERT INTO transactions 
-    (transaction_date, item_code, transaction_type, quantity, processed_by, notes, serial_number) 
-    VALUES (?, ?, ?, ?, ?, ?, ?)");
-$stmt->execute([
-    $_POST['trans_date'],
-    $_POST['item_code'],
-    $_POST['trans_type'],
-    $_POST['quantity'],
-    $_POST['processed_by'], // This captures the selected processor
-    $_POST['notes'],
-    !empty($_POST['serial_number']) ? $_POST['serial_number'] : NULL
-]);
-        
-        // Update stock
-    $change = $_POST['trans_type'] === 'in' ? $_POST['quantity'] : -$_POST['quantity'];
-    $stmt = $pdo->prepare("UPDATE items SET current_stock = current_stock + ? WHERE item_code = ?");
-    $stmt->execute([$change, $_POST['item_code']]);
-    
-    header("Location: index.php?success=Transaction added successfully");
-    exit();
-}
-    elseif (isset($_POST['add_item'])) {
-        if (!isAdmin()) {
-            header("Location: index.php?error=Only admin can add items");
-            exit();
+        $trans_date = $_POST['trans_date'];
+        $item_code = $_POST['item_code'];
+        $trans_type = $_POST['trans_type'];
+        $processed_by = $_POST['processed_by'];
+        $notes = $_POST['notes'];
+        $released_by = $_POST['released_by']; // 🆕 Get released_by from form
+
+        // Get quantity either from count of serials or quantity field
+        $serials = isset($_POST['serial_numbers']) ? $_POST['serial_numbers'] : [];
+        $isMultiple = count($serials) > 0;
+
+        $stmt = $pdo->prepare("INSERT INTO transactions 
+            (transaction_date, item_code, transaction_type, quantity, processed_by, notes, serial_number, last_realesby) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+
+        if ($isMultiple) {
+            foreach ($serials as $serial) {
+                $stmt->execute([
+                    $trans_date,
+                    $item_code,
+                    $trans_type,
+                    1, // 1 per serial
+                    $processed_by,
+                    $notes,
+                    $serial,
+                    $released_by // 🆕 Save released_by as last_realesby
+                ]);
+            }
+            $qty = count($serials);
+        } else {
+            // Single transaction
+            $qty = $_POST['quantity'];
+            $stmt->execute([
+                $trans_date,
+                $item_code,
+                $trans_type,
+                $qty,
+                $processed_by,
+                $notes,
+                !empty($_POST['serial_number']) ? $_POST['serial_number'] : NULL,
+                $released_by // 🆕 Save released_by as last_realesby
+            ]);
         }
-        
-        $stmt = $pdo->prepare("INSERT INTO items (item_code, description, category, current_stock, min_stock) 
-                              VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([
-            $_POST['new_item_code'],
-            $_POST['new_item_desc'],
-            $_POST['new_item_category'],
-            $_POST['new_item_stock'],
-            $_POST['new_item_min_stock']
-        ]);
-        
-        header("Location: index.php?tab=items&success=Item added successfully");
+
+        // Update stock
+        $change = $trans_type === 'in' ? $qty : -$qty;
+        $stmt = $pdo->prepare("UPDATE items SET current_stock = current_stock + ? WHERE item_code = ?");
+        $stmt->execute([$change, $item_code]);
+
+        header("Location: index.php?success=Transaction added successfully");
         exit();
     }
+
+    // ... your add_item part remains unchanged
 }
+
 
 // Get current tab
 $tab = isset($_GET['tab']) ? $_GET['tab'] : 'dashboard';
@@ -269,6 +283,7 @@ if (isset($_GET['ajax'])) {
     echo json_encode(array_values($filtered));
     exit;
 }
+$releasedUsers = $pdo->query("SELECT name FROM released_by_users WHERE is_active = TRUE ORDER BY name")->fetchAll();
 
 ?>
 
@@ -287,12 +302,17 @@ if (isset($_GET['ajax'])) {
 </head>
     <div class="container">
         <div class="header">
-            <h1>ADVANCED STOCK MONITORING SYSTEM</h1>
-            <div class="user-info">
-                <span>Welcome, <?php echo htmlspecialchars($current_user); ?></span>
-                <a href="logout.php" class="logout-btn">Logout</a>
-            </div>
-        </div>
+    <h1>ADVANCED STOCK MONITORING SYSTEM</h1>
+    <div class="user-info">
+        <span>
+            Welcome, 
+            <a href="user_profile.php" class="user-link">
+                <?php echo htmlspecialchars($current_user); ?>
+            </a>
+        </span>
+        <a href="logout.php" class="logout-btn">Logout</a>
+    </div>
+</div>
         
         <?php if (isset($_GET['success'])): ?>
             <div class="alert alert-success"><?php echo htmlspecialchars($_GET['success']); ?></div>
@@ -314,74 +334,96 @@ if (isset($_GET['ajax'])) {
         
         <!-- Dashboard Tab -->
         <div id="dashboard" class="tab-content <?php echo $tab === 'dashboard' ? 'active' : ''; ?>">
-            <div class="dashboard">
-                <div class="card">
-                    <div class="card-title">STOCK MOVEMENT</div>
-                    <form method="POST" action="index.php">
-                        <input type="hidden" name="add_transaction" value="1">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Date</label>
-                                <input type="datetime-local" name="trans_date" value="<?php date('Y-m-d\TH:i'); ?>" required>
-                                
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Item</label>
-                                <select name="item_code" required>
-                                    <option value="">Select Item</option>
-                                    <?php foreach ($items as $item): ?>
-                                        <option value="<?php echo htmlspecialchars($item['item_code']); ?>">
-                                            <?php echo htmlspecialchars($item['description']); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Transaction Type</label>
-                                <select name="trans_type" required>
-                                    <option value="in">Stock In (Delivery)</option>
-                                    <option value="out">Stock Out</option>
-                                    <option value="adjust">Adjustment</option>
-                                </select>
-                            </div>
-                            <label>Serial Number (Optional)</label>
-    <div class="serial-input-group">
-        <input type="text" name="serial_number" id="serialNumberInput" placeholder="Scan modem serial">
-        <button type="button" class="btn" onclick="startSerialScanner()">
-            <i class="fas fa-barcode"></i> Scan
-        </button>
-    </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Quantity</label>
-                                <input type="number" name="quantity" min="1" required>
-                            </div>
-                        </div>
-        <div class="form-group">
-    <label>Processed By</label>
-    <select name="processed_by" required>
-        <option value="">Select Processor</option>
-        <?php 
-        $processors = $pdo->query("SELECT * FROM processors WHERE is_active = TRUE ORDER BY name")->fetchAll();
-        foreach ($processors as $processor): ?>
-            <option value="<?= htmlspecialchars($processor['name']) ?>">
-                <?= htmlspecialchars($processor['name']) ?>
-            </option>
-        <?php endforeach; ?>
-    </select>
-</div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Notes</label>
-                                <textarea name="notes" rows="2"></textarea>
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-success">RECORD TRANSACTION</button>
-                    </form>
+    <div class="dashboard">
+        <div class="card">
+            <div class="card-title">STOCK MOVEMENT</div>
+            <form method="POST" action="index.php">
+                <input type="hidden" name="add_transaction" value="1">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Date</label>
+                        <input type="datetime-local" name="trans_date" value="<?php echo date('Y-m-d\TH:i'); ?>" required>
+                    </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Item</label>
+                        <select name="item_code" required>
+                            <option value="">Select Item</option>
+                            <?php foreach ($items as $item): ?>
+                                <option value="<?php echo htmlspecialchars($item['item_code']); ?>">
+                                    <?php echo htmlspecialchars($item['description']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Transaction Type</label>
+                        <select name="trans_type" required>
+                            <option value="in">Stock In (Delivery)</option>
+                            <option value="out">Stock Out</option>
+                            <option value="adjust">Adjustment</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" name="quantity" id="quantityInput" min="1" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+    <label>Scan Serial Numbers</label>
+    <div id="serial-wrapper">
+        <input type="text" name="serial_numbers[]" class="serial-input" placeholder="Scan serial...">
+    </div>
+    <button type="button" onclick="addSerialInput()" class="btn btn-sm btn-primary">Add Another</button>
+</div>
+
+                <div class="form-group">
+                    <label>Processed By</label>
+                    <select name="processed_by" required>
+                        <option value="">Select Processor</option>
+                        <?php 
+                        $processors = $pdo->query("SELECT * FROM processors WHERE is_active = TRUE ORDER BY name")->fetchAll();
+                        foreach ($processors as $processor): ?>
+                            <option value="<?= htmlspecialchars($processor['name']) ?>">
+                                <?= htmlspecialchars($processor['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+    <label>Released By</label>
+   <select name="released_by" required>
+    <option value="">Select Released By</option>
+    <?php 
+    $releasedUsers = $pdo->query("SELECT name FROM released_by_users ORDER BY name")->fetchAll();
+    foreach ($releasedUsers as $user): ?>
+        <option value="<?= htmlspecialchars($user['name']) ?>">
+            <?= htmlspecialchars($user['name']) ?>
+        </option>
+    <?php endforeach; ?>
+</select>
+
+</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea name="notes" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-success">RECORD TRANSACTION</button>
+            </form>
+        </div>
+
                 
                 <div class="card">
                     <div class="card-title">CURRENT STOCK LEVELS</div>
@@ -563,28 +605,80 @@ if (isset($_GET['ajax'])) {
 
  <!-- Add Processor Modal -->
 <div id="addProcessorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
-    <div style="background: white; padding: 20px; border-radius: 8px; width: 500px; max-width: 90%;">
-        <h2>Add New Processor</h2>
+    <div style="background: white; padding: 25px; border-radius: 8px; width: 450px; max-width: 90%; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <!-- Modal Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #f0f0f0; padding-bottom: 15px;">
+            <h2 style="margin: 0; font-size: 1.4rem; color: #333;">Add New Processor</h2>
+            <button onclick="hideAddProcessorModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #666;">&times;</button>
+        </div>
+        
+        <!-- Processor Form -->
         <form method="POST" action="manage_processor.php">
             <input type="hidden" name="action" value="add">
-            <div class="form-group">
-                <label>Processor Name</label>
-                <input type="text" name="name" required>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #555;">Processor Name</label>
+                <input type="text" name="name" required style="
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 1rem;
+                    transition: border 0.3s;
+                ">
             </div>
-            <div class="form-group">
-                <label>Status</label>
-                <select name="is_active" required>
+            
+            <div style="margin-bottom: 25px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: 500; color: #555;">Status</label>
+                <select name="is_active" required style="
+                    width: 100%;
+                    padding: 10px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 6px;
+                    font-size: 1rem;
+                    background-color: white;
+                ">
                     <option value="1">Active</option>
                     <option value="0">Inactive</option>
                 </select>
             </div>
-            <div style="display: flex; gap: 10px; margin-top: 20px;">
-                <button type="submit" class="btn btn-success">SAVE</button>
-                <button type="button" class="btn btn-danger" onclick="hideAddProcessorModal()">CANCEL</button>
+            
+            <!-- Form Buttons -->
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" onclick="hideAddProcessorModal()" style="
+                    padding: 10px 20px;
+                    background: #f0f0f0;
+                    color: #333;
+                    border: none;
+                    border-radius: 6px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                ">
+                    Cancel
+                </button>
+                <button type="submit" style="
+                    padding: 10px 20px;
+                    background: #3b82f6;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                ">
+                    Save Processor
+                </button>
             </div>
         </form>
     </div>
 </div>
+
+<script>
+function hideAddProcessorModal() {
+    document.getElementById('addProcessorModal').style.display = 'none';
+}
+</script>
 
 <!-- Edit Processor Modal -->
 <div id="editProcessorModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;">
@@ -1393,7 +1487,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
-
+function addSerialInput() {
+    const wrapper = document.getElementById('serial-wrapper');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.name = 'serial_numbers[]';
+    input.classList.add('serial-input');
+    input.placeholder = 'Scan serial...';
+    input.required = true;
+    wrapper.appendChild(document.createElement('br'));
+    wrapper.appendChild(input);
+}
     </script>
 </body>
 </html>

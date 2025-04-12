@@ -452,15 +452,12 @@ function updateTechReport(data) {
         <option value="ASSIGN TECH" ${rowData.status === 'ASSIGN TECH' ? 'selected' : ''}>ASSIGN TECH</option>
         <option value="DEFECTIVE" ${rowData.status === 'DEFECTIVE' ? 'selected' : ''}>DEFECTIVE</option>
         <option value="RETURN" ${rowData.status === 'RETURN' ? 'selected' : ''}>RETURN</option>
+                <option value="N/A" ${rowData.status === 'N/A' ? 'selected' : ''}>N/A</option>
+
     </select>
 </td>
             <td>
                 <span class="realesBy" style="color: ${realesByColor};">${releasedByValue}</span>
-                <select class="realesBySelect" style="display: none;">
-                    <option value="JEN" ${releasedByValue === 'JEN' ? 'selected' : ''}>JEN</option>
-                    <option value="POLDS" ${releasedByValue === 'POLDS' ? 'selected' : ''}>POLDS</option>
-                    <option value="" ${!releasedByValue || releasedByValue === 'N/A' ? 'selected' : ''}>-- Select --</option>
-                </select>
             </td>
             <td>
                 <button class="editButton" style="background-color: #007bff; color: white; border: none; padding: 5px 10px; cursor: pointer;">Edit</button>
@@ -471,11 +468,75 @@ function updateTechReport(data) {
     });
 
     // Event delegation for edit buttons
-    reportBody.addEventListener('click', function(e) {
-        if (e.target.classList.contains('editButton')) {
-            const row = e.target.closest('tr');
+   reportBody.addEventListener('click', function(e) {
+    if (e.target.classList.contains('editButton')) {
+        const row = e.target.closest('tr');
+
+        if (e.target.textContent === 'Edit') {
             toggleEditMode(row);
+            e.target.textContent = 'Save';
+            e.target.style.backgroundColor = 'green';
+        } else {
+            saveEditedRow(row); // Save to DB
+            e.target.textContent = 'Edit';
+            e.target.style.backgroundColor = '#007bff';
         }
+    }
+});
+function toggleEditMode(row) {
+    row.querySelector('.accountNumber').style.display = 'none';
+    row.querySelector('.accountNumberInput').style.display = 'inline-block';
+
+    row.querySelector('.serialNumber').style.display = 'none';
+    row.querySelector('.serialNumberInput').style.display = 'inline-block';
+
+    row.querySelector('.status').style.display = 'none';
+    row.querySelector('.statusSelect').style.display = 'inline-block';
+}
+
+}
+function saveEditedRow(row) {
+    const transactionId = row.getAttribute('data-id');
+    const accountNumber = row.querySelector('.accountNumberInput').value;
+    const serialNumber = row.querySelector('.serialNumberInput').value;
+    const status = row.querySelector('.statusSelect').value;
+
+    fetch('save_update_report.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            transaction_id: transactionId,
+            account_number: accountNumber,
+            serial_number: serialNumber,
+            status: status
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        console.log('Update response:', data);
+        if (data.success) {
+            // Update displayed values
+            row.querySelector('.accountNumber').textContent = accountNumber;
+            row.querySelector('.serialNumber').textContent = serialNumber;
+            row.querySelector('.status').textContent = status;
+            row.querySelector('.status').style.backgroundColor = getStatusColor(status);
+
+            // Hide inputs again
+            row.querySelector('.accountNumber').style.display = 'inline-block';
+            row.querySelector('.accountNumberInput').style.display = 'none';
+            row.querySelector('.serialNumber').style.display = 'inline-block';
+            row.querySelector('.serialNumberInput').style.display = 'none';
+            row.querySelector('.status').style.display = 'inline-block';
+            row.querySelector('.statusSelect').style.display = 'none';
+        } else {
+            alert('Failed to update!');
+        }
+    })
+    .catch(err => {
+        console.error('Error updating:', err);
+        alert('Error occurred.');
     });
 }
 
@@ -505,13 +566,23 @@ function getStatusColor(status) {
 
 // Function to get the color based on realesBy value
 function getRealesByColor(realesBy) {
-    if (realesBy === 'JEN') {
-        return 'green';
-    } else if (realesBy === 'POLDS') {
-        return 'blue';
-    } else {
-        return 'black';
+    // Default to black kung wala
+    if (!realesBy) return 'black';
+
+    // Generate a simple color from the string
+    let hash = 0;
+    for (let i = 0; i < realesBy.length; i++) {
+        hash = realesBy.charCodeAt(i) + ((hash << 5) - hash);
     }
+
+    // Convert hash to hex color
+    let color = '#';
+    for (let i = 0; i < 3; i++) {
+        let value = (hash >> (i * 8)) & 0xFF;
+        color += ('00' + value.toString(16)).substr(-2);
+    }
+
+    return color;
 }
 
 

@@ -722,3 +722,11 @@ a:hover {
 #show-calendar-btn:hover { background: #f0f5ff; }
 
 /* For Option 2 */
+   .user-link {
+    color: black;
+}
+
+.user-link:hover {
+    color: #ddd;
+    text-decoration: none;
+}
