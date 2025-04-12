@@ -173,47 +173,19 @@ $stmt = $pdo->prepare("INSERT INTO transactions (...) VALUES (...)");
 
 
 // Function to get consumption data filtered by technician
-function getConsumptionData($pdo, $transactions = null) {
-    $query = "SELECT * FROM drop_wire_consumption WHERE 1=1";
-    $params = [];
-    
-    if ($transactions) {
-        $query .= " AND technician_name = ?";
-        $params[] = $transactions;
-    }
-    
-    $query .= " ORDER BY date DESC";
-    $stmt = $pdo->prepare($query);
-    $stmt->execute($params);
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// Main execution
-try {
-    // Get selected technician from URL query parameters (AJAX request)
-    $selectedTech = $_GET['transactions'] ?? '';  // 'transactions' comes from the dropdown select
-    $transactions = gettransactions($pdo);  // Get all distinct technicians
-    $consumptionData = getConsumptionData($pdo, $selectedTech);  // Get data filtered by selected technician
-    
-    // Calculate total drop wire consumed for the selected technician
-    $totalConsumed = array_sum(array_column($consumptionData, 'drop_wire_consumed'));
-    
-    // Return the data as a JSON response
-
-    
-} catch (PDOException $e) {
-    die("Database error: " . $e->getMessage());
-}
-function getTransactions($pdo) {
-    $stmt = $pdo->query("SELECT DISTINCT processed_by 
-                         FROM transactions 
-                         WHERE processed_by IS NOT NULL AND processed_by != '' 
-                         ORDER BY processed_by");
+// Function to get unique technician names (processed_by from transactions table)
+// Function to get drop wire consumption data based on the selected technician (processed_by)
+// Function to get drop wire consumption data based on the selected technician (processed_by) and date range
+function getTechnicians($pdo) {
+    $stmt = $pdo->query("SELECT DISTINCT processed_by
+                           FROM transactions
+                           WHERE processed_by IS NOT NULL AND processed_by != ''
+                           ORDER BY processed_by");
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
-// Function to get drop wire consumption data based on the technician selection
-function getDropWireConsumption($pdo, $technician = null) {
+// Function to get drop wire consumption data from the transactions and drop_wire_consumption tables
+function getDropWireConsumption($pdo, $technician = null, $startDate = null, $endDate = null) {
     $query = "
         SELECT dwc.*, t.account_number, t.serial_number, t.processed_by AS technician_name
         FROM drop_wire_consumption AS dwc
@@ -223,10 +195,17 @@ function getDropWireConsumption($pdo, $technician = null) {
 
     $params = [];
 
-    // If a technician is selected, filter by processed_by
+    // Filter by technician if specified
     if ($technician) {
         $query .= " AND t.processed_by = ?";
         $params[] = $technician;
+    }
+
+    // Filter by date range if specified
+    if ($startDate && $endDate) {
+        $query .= " AND dwc.date BETWEEN ? AND ?";
+        $params[] = $startDate;
+        $params[] = $endDate;
     }
 
     $query .= " ORDER BY dwc.date DESC";
@@ -236,22 +215,61 @@ function getDropWireConsumption($pdo, $technician = null) {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
+// Main execution block
 try {
-    // Get technician selection from GET request
-    $selectedTech = $_GET['transactions'] ?? '';
+    // Get selected technician and date range from URL query parameters (AJAX request)
+    $selectedTech = $_GET['technician'] ?? '';
+    $startDate = $_GET['start_date'] ?? null; // Start date from the calendar
+    $endDate = $_GET['end_date'] ?? null; // End date from the calendar
 
-    // Get the list of all technicians (processed_by)
-    $transactions = getTransactions($pdo);
+    // Get the list of all technicians (processed_by) for the dropdown
+    $technicians = getTechnicians($pdo);
 
-    // Get drop wire consumption data based on selected technician
-    $consumptionData = getDropWireConsumption($pdo, $selectedTech);
+    // Get drop wire consumption data based on the selected technician and date range
+    $consumptionData = getDropWireConsumption($pdo, $selectedTech, $startDate, $endDate);
 
     // Calculate total consumed wire
     $totalConsumed = array_sum(array_column($consumptionData, 'drop_wire_consumed'));
 
+    // If it's an AJAX request, return JSON
+    if (isset($_GET['technician'])) {
+        header('Content-Type: application/json');
+        echo json_encode($consumptionData);
+        exit();
+    }
+} catch (Exception $e) {
+    // Handle any exceptions (e.g., invalid date format, database connection errors)
+    echo json_encode(['error' => $e->getMessage()]);
+    exit();
 } catch (PDOException $e) {
-    die("Database error: " . $e->getMessage());
+    // Handle database-specific exceptions
+    echo json_encode(['error' => 'Database error: ' . $e->getMessage()]);
+    exit();
 }
+
+if (isset($_GET['ajax'])) {
+    header('Content-Type: application/json');
+
+    $technician = $_GET['technician'] ?? '';
+    $start = $_GET['start_date'] ?? '';
+    $end = $_GET['end_date'] ?? '';
+
+    // Example filter logic, update with your real DB call
+    $filtered = array_filter($consumptionData, function ($row) use ($technician, $start, $end) {
+        $matchTech = !$technician || $row['technician_name'] === $technician;
+        $matchDate = true;
+
+        if ($start && $end) {
+            $matchDate = $row['date'] >= $start && $row['date'] <= $end;
+        }
+
+        return $matchTech && $matchDate;
+    });
+
+    echo json_encode(array_values($filtered));
+    exit;
+}
+
 ?>
 
 <!DOCTYPE html>
@@ -262,6 +280,9 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="styles.css">
     <script src="script.js"></script>
+    <script>
+  const phpSelf = "<?= $_SERVER['PHP_SELF'] ?>";
+</script>
     <title>Advanced Stock Monitoring</title>
 </head>
     <div class="container">
@@ -921,61 +942,420 @@ try {
         </div>
     </div>
 <?php endif; ?>
-<div id="dropwire">
-    <div class="card">
-        <div class="card-header">
-            <h2>DROP WIRE MONITORING</h2>
-            <form method="get" action="<?= $_SERVER['PHP_SELF'] ?>" id="technician-form">
-                <label>Select Technician:
-                    <select name="technician">
-                        <option value="">-- All Technicians --</option>
-                        <?php foreach ($transactions as $tech): ?>
-                        <option value="<?= htmlspecialchars($tech) ?>"
-                            <?= isset($_GET['technician']) && $_GET['technician'] === $tech ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($tech) ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </label>
-            </form>
-        </div>
 
-        <table id="dropwire-table">
-            <thead style="display: table-header-group; background: #f8f9fa;">
-                <tr>
-                    <th>Date</th>
-                    <th>Account Number</th>
-                    <th>Serial Number</th>
-                    <th>Technician</th>
-                    <th>Wire Consumed (meters)</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($consumptionData)): ?>
-                <tr>
-                    <td colspan="6">No data found</td>
-                </tr>
-                <?php else: ?>
-                <?php foreach ($consumptionData as $row): ?>
-                <tr>
-                    <td><?= htmlspecialchars($row['date']) ?></td>
-                    <td><?= htmlspecialchars($row['account_number']) ?></td>
-                    <td><?= htmlspecialchars($row['serial_number']) ?></td>
-                    <td><?= htmlspecialchars($row['technician_name']) ?></td>
-                    <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
-                    <td><a href="edit_dropwire.php?id=<?= $row['id'] ?>">Edit</a></td>
-                </tr>
-                <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-        
-        <div class="card-footer">
-            Total: <?= number_format($totalConsumed, 2) ?> meters
-        </div>
+         <div class="calendar-container">
+            
+   <div style="position: fixed; bottom: 20px; right: 20px; display: flex; gap: 12px;">
+    <!-- Calendar Button -->
+    <button id="show-calendar-btn" style="
+        padding: 12px 20px;
+        background: white;
+        color: #3b82f6;
+        border: 2px solid #3b82f6;
+        border-radius: 30px;
+        font-weight: 500;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.2s;
+    ">
+        Calendar
+    </button>
+    
+    <!-- Create Button -->
+    <button id="open-create-form" style="
+        width: 50px;
+        height: 50px;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        transition: all 0.2s;
+    ">
+        +
+    </button>
+</div>
+
+<div id="create-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h3>Create Drop Wire Record</h3>
+        <form id="create-form" style="display: flex; flex-direction: column; gap: 0.4rem;">
+            
+            <label>Serial Number:
+                <select id="serial-number" required>
+                    <option value="">-- Select --</option>
+                    <?php
+                        $stmt = $pdo->query("SELECT DISTINCT serial_number FROM transactions");
+                        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                            echo "<option value=\"" . htmlspecialchars($row['serial_number']) . "\">" . htmlspecialchars($row['serial_number']) . "</option>";
+                        }
+                    ?>
+                </select>
+            </label>
+
+            <label>Account Number: <input type="text" id="account-number" readonly></label>
+            <label>Processed By: <input type="text" id="processed-by" readonly></label>
+            <label>Transaction Date: <input type="date" id="transaction-date" readonly></label>
+            <label>Drop Wire Consumed: <input type="number" step="0.01" id="drop-wire" required></label>
+
+            <button type="submit" style="margin-top: 0.5rem;">Submit</button>
+        </form>
     </div>
 </div>
 
+
+    <div class="mini-calendar" id="calendar" style="display: none;">
+        <div class="calendar-header">
+            <span id="calendar-month-year"></span>
+            <div>
+                <button id="prev-month">&lt;</button>
+                <button id="next-month">&gt;</button>
+            </div>
+        </div>
+        <div class="calendar-days-header">
+            <span>Su</span>
+            <span>Mo</span>
+            <span>Tu</span>
+            <span>We</span>
+            <span>Th</span>
+            <span>Fr</span>
+            <span>Sa</span>
+        </div>
+        <div id="calendar-dates">
+        </div>
+    </div>
+</div>
+         
+<div id="dropwire">
+    
+        <div class="card">
+            
+            <div class="card-header">
+                     <h2>DROP WIRE MONITORING</h2>
+                <form id="technician-form">
+                    <label>Select Technician:
+                        <select name="technician">
+                            <option value="">-- All Technicians --</option>
+                            <?php foreach ($technicians as $tech): ?>
+                            <option value="<?= htmlspecialchars($tech) ?>">
+                                <?= htmlspecialchars($tech) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                </form>
+            </div>
+
+            <table id="dropwire-table">
+                <thead style="display: table-header-group; background: #f8f9fa;">
+                    <tr>
+                        <th>Date</th>
+                        <th>Account Number</th>
+                        <th>Serial Number</th>
+                        <th>Technician</th>
+                        <th>Wire Consumed (meters)</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($consumptionData)): ?>
+                    <tr>
+                        <td colspan="6">No data found</td>
+                    </tr>
+                    <?php else: ?>
+                    <?php foreach ($consumptionData as $row): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($row['date']) ?></td>
+                        <td><?= htmlspecialchars($row['account_number']) ?></td>
+                        <td><?= htmlspecialchars($row['serial_number']) ?></td>
+                        <td><?= htmlspecialchars($row['technician_name']) ?></td>
+                        <td><?= number_format($row['drop_wire_consumed'], 2) ?></td>
+                       <td><a href="#" class="edit-button" data-id="<?= $row['id'] ?>">Edit</a></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+
+            <div class="card-footer">
+                Total: <?= number_format($totalConsumed, 2) ?> meters
+            </div>
+        </div>
+    </div>
+    <script>
+      document.getElementById('serial-number').addEventListener('change', function () {
+    const serial = this.value;
+
+    if (!serial) return;
+
+    fetch('get_transaction_details.php?serial_number=' + encodeURIComponent(serial))
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('account-number').value = data.account_number;
+                document.getElementById('processed-by').value = data.processed_by;
+                document.getElementById('transaction-date').value = data.transaction_date;
+            } else {
+                document.getElementById('account-number').value = '';
+                document.getElementById('processed-by').value = '';
+                document.getElementById('transaction-date').value = '';
+                alert('No transaction data found for this serial number.');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching transaction details:', error);
+        });
+});
+        document.getElementById("open-create-form").addEventListener("click", () => {
+    document.getElementById("create-modal").style.display = "flex";
+});
+
+document.querySelector(".close-btn").addEventListener("click", () => {
+    document.getElementById("create-modal").style.display = "none";
+});
+
+document.getElementById("account-number").addEventListener("change", function () {
+    const accountNumber = this.value;
+    if (!accountNumber) return;
+
+    fetch('get_transaction_info.php?account_number=' + encodeURIComponent(accountNumber))
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById("serial-number").value = data.serial_number;
+                document.getElementById("processed-by").value = data.processed_by;
+                document.getElementById("transaction-date").value = data.transaction_date;
+            } else {
+                alert('Transaction data not found.');
+            }
+        })
+        .catch(() => alert('Error fetching data.'));
+});
+        
+      document.addEventListener('DOMContentLoaded', function () {
+    const technicianDropdown = document.querySelector('#technician-form select[name="technician"]');
+    const dropwireTableBody = document.querySelector('#dropwire-table tbody');
+    const showCalendarBtn = document.getElementById('show-calendar-btn');
+    const calendarContainer = document.querySelector('.calendar-container');
+    const calendar = document.getElementById('calendar');
+    const calendarMonthYear = document.getElementById('calendar-month-year');
+    const calendarDates = document.getElementById('calendar-dates');
+    const prevMonthBtn = document.getElementById('prev-month');
+    const nextMonthBtn = document.getElementById('next-month');
+
+    let currentDate = new Date();
+    let selectedDate = null;
+    let calendarVisible = false;
+
+    function fetchAndRenderData() {
+        const technician = technicianDropdown.value;
+        let url = phpSelf + '?ajax=1';
+
+        if (technician) url += `&technician=${encodeURIComponent(technician)}`;
+        if (selectedDate) {
+            url += `&start_date=${selectedDate.start}&end_date=${selectedDate.end}`;
+        }
+
+        fetch(url)
+            .then(res => res.json())
+            .then(updateTable)
+            .catch(err => console.error('Fetch error:', err));
+    }
+
+    technicianDropdown.addEventListener('change', fetchAndRenderData);
+
+    function renderCalendar() {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const monthNames = ["January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"];
+        calendarMonthYear.textContent = `${monthNames[month]} ${year}`;
+        calendarDates.innerHTML = '';
+
+        for (let i = 0; i < firstDay; i++) {
+            const empty = document.createElement('span');
+            empty.classList.add('empty');
+            calendarDates.appendChild(empty);
+        }
+
+        for (let i = 1; i <= daysInMonth; i++) {
+            const dateCell = document.createElement('span');
+            const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            dateCell.textContent = i;
+
+            if (fullDate === new Date().toISOString().slice(0, 10)) {
+                dateCell.classList.add('today');
+            }
+
+            if (selectedDate && fullDate >= selectedDate.start && fullDate <= selectedDate.end) {
+                dateCell.classList.add('selected');
+            }
+
+            dateCell.addEventListener('click', () => {
+                const clickedDate = new Date(fullDate);
+                const day = clickedDate.getDay();
+                const monday = new Date(clickedDate);
+                monday.setDate(clickedDate.getDate() - (day === 0 ? 6 : day - 1));
+                const sunday = new Date(monday);
+                sunday.setDate(monday.getDate() + 6);
+
+                selectedDate = {
+                    start: monday.toISOString().slice(0, 10),
+                    end: sunday.toISOString().slice(0, 10)
+                };
+
+                renderCalendar();
+                fetchAndRenderData();
+            });
+
+            calendarDates.appendChild(dateCell);
+        }
+    }
+
+    function updateTable(data) {
+        dropwireTableBody.innerHTML = '';
+        if (data.length > 0) {
+    // generate table rows
+    updateTotal(data);
+} else {
+    // show "no data found"
+    updateTotal([]); // sets total to 0.00 meters
+}
+
+        if (data.length === 0) {
+            const row = dropwireTableBody.insertRow();
+            const cell = row.insertCell();
+            cell.colSpan = 6;
+            cell.textContent = 'No data found';
+            return;
+        }
+
+        data.forEach(row => {
+    const newRow = dropwireTableBody.insertRow();
+
+    newRow.insertCell().textContent = row.date;
+    newRow.insertCell().textContent = row.account_number;
+    newRow.insertCell().textContent = row.serial_number;
+    newRow.insertCell().textContent = row.technician_name;
+    newRow.insertCell().textContent = parseFloat(row.drop_wire_consumed).toFixed(2);
+
+    const actionsCell = newRow.insertCell();
+    const button = document.createElement('button');
+    button.textContent = 'Edit';
+    button.classList.add('edit-button');
+    button.dataset.id = row.id; // very important para sa fetch
+    actionsCell.appendChild(button);
+});
+    }
+
+    showCalendarBtn.addEventListener('click', function (event) {
+        event.stopPropagation();
+        calendar.style.display = calendarVisible ? 'none' : 'block';
+        calendarVisible = !calendarVisible;
+    });
+
+    prevMonthBtn.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+        renderCalendar();
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+        renderCalendar();
+    });
+
+    document.addEventListener('click', function (event) {
+        if (calendarVisible && !calendarContainer.contains(event.target) && event.target !== showCalendarBtn) {
+            calendar.style.display = 'none';
+            calendarVisible = false;
+        }
+    });
+
+    renderCalendar();
+});
+function updateTotal(data) {
+    const total = data.reduce((sum, row) => sum + parseFloat(row.drop_wire_consumed || 0), 0);
+    const footer = document.querySelector('.card-footer');
+    footer.textContent = `Total: ${total.toFixed(2)} meters`;
+}
+document.addEventListener('DOMContentLoaded', function () {
+    const table = document.querySelector('#dropwire-table');
+
+    table.addEventListener('click', function (e) {
+        const target = e.target;
+
+        // ==== EDIT MODE ====
+        if (target.classList.contains('edit-button')) {
+            const row = target.closest('tr');
+            const id = target.dataset.id;
+
+            // Get table cells
+            const accountCell = row.children[1];
+            const serialCell = row.children[2];
+            const wireCell = row.children[4];
+
+            // Replace text with input fields
+            accountCell.innerHTML = `<input type="text" value="${accountCell.textContent.trim()}">`;
+            serialCell.innerHTML = `<input type="text" value="${serialCell.textContent.trim()}">`;
+            wireCell.innerHTML = `<input type="number" step="0.01" value="${wireCell.textContent.trim()}">`;
+
+            // Switch Edit to Save
+            target.textContent = 'Save';
+            target.classList.remove('edit-button');
+            target.classList.add('save-button');
+        }
+
+        // ==== SAVE MODE ====
+        else if (target.classList.contains('save-button')) {
+            const row = target.closest('tr');
+            const id = target.dataset.id;
+
+            const accountNumber = row.children[1].querySelector('input').value.trim();
+            const serialNumber = row.children[2].querySelector('input').value.trim();
+            const wireConsumed = row.children[4].querySelector('input').value.trim();
+
+           fetch('update_dropwire.php', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+        id: id,
+        accountNumber: accountNumber,
+        serialNumber: serialNumber,
+        wireConsumed: wireConsumed
+    })
+})
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    // Replace inputs with new values
+                    row.children[1].textContent = accountNumber;
+                    row.children[2].textContent = serialNumber;
+                    row.children[4].textContent = parseFloat(wireConsumed).toFixed(2);
+
+                    // Switch Save to Edit
+                    target.textContent = 'Edit';
+                    target.classList.remove('save-button');
+                    target.classList.add('edit-button');
+                } else {
+                    console.error(result);
+                    alert('Update failed: ' + (result.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                alert('Something went wrong while saving.');
+            });
+        }
+    });
+});
+    </script>
 </body>
 </html>

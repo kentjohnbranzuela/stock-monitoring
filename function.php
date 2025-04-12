@@ -1,20 +1,20 @@
 <?php
-function getTechnicians($pdo) {
+function gettransactions($pdo) {
     $stmt = $pdo->query("SELECT DISTINCT processed_by 
-                        FROM technicians 
+                        FROM transactions 
                         WHERE processed_by IS NOT NULL 
                         AND processed_by != ''
                         ORDER BY processed_by");
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
 
-function getConsumptionData($pdo, $technician = null) {
+function getConsumptionData($pdo, $transactions = null) {
     $query = "SELECT * FROM drop_wire_consumption";
     $params = [];
     
-    if ($technician) {
+    if ($transactions) {
         $query .= " WHERE technician_name = ?";
-        $params[] = $technician;
+        $params[] = $transactions;
     }
     
     $query .= " ORDER BY date DESC";

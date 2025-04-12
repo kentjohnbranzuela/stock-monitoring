@@ -795,4 +795,47 @@ function toggleEditMode(row) {
         editButton.textContent = isEditing ? 'Save' : 'Edit';
     }
 }
-document.querySelector('#dropwire-table thead')?.remove(); // Example of bad JS
+//create
+document.getElementById("open-create-form").addEventListener("click", () => {
+    document.getElementById("create-modal").style.display = "flex";
+});
+
+document.querySelector(".close-btn").addEventListener("click", () => {
+    document.getElementById("create-modal").style.display = "none";
+});
+
+document.getElementById("account-number").addEventListener("change", function () {
+    const accountNumber = this.value;
+    if (!accountNumber) return;
+
+    fetch('get_transaction_info.php?account_number=' + encodeURIComponent(accountNumber))
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById("serial-number").value = data.serial_number;
+                document.getElementById("processed-by").value = data.processed_by;
+                document.getElementById("transaction-date").value = data.transaction_date;
+            } else {
+                alert('Transaction data not found.');
+            }
+        })
+        .catch(() => alert('Error fetching data.'));
+});
+document.getElementById('serial-number').addEventListener('change', function () {
+    const serial = this.value;
+
+    if (serial) {
+        fetch(`get_transaction_details.php?serial_number=${encodeURIComponent(serial)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('account-number').value = data.account_number || '';
+                    document.getElementById('processed-by').value = data.processed_by || '';
+                    document.getElementById('transaction-date').value = data.transaction_date || '';
+                } else {
+                    alert('No data found for this serial number.');
+                }
+            })
+            .catch(err => console.error('Fetch error:', err));
+    }
+});

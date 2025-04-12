@@ -606,4 +606,119 @@ a:hover {
             width: 100%;
         }
     }
-    
+     .calendar-container {
+    position: relative;
+}
+
+.mini-calendar {
+    position: absolute;
+    z-index: 10;
+    top: 35px;
+    left: 0;
+    transform: translateX(10px); /* Ayusin ang halaga kung kinakailangan */
+    border: 1px solid #ccc;
+    background-color: white;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.1);
+    /* Iba pang mga estilo mo */
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px; /* More space below header */
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee; /* Light separator */
+}
+
+.calendar-header span {
+    font-weight: 500; /* Slightly bolder month/year */
+}
+
+.calendar-header button {
+    background: none;
+    border: none;
+    padding: 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    color: #555;
+    transition: background-color 0.3s ease;
+}
+
+.calendar-header button:hover {
+    background-color: #eee;
+}
+
+.calendar-days-header {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px; /* Slightly more gap */
+    margin-bottom: 5px;
+}
+
+.calendar-days-header span {
+    text-align: center;
+    font-weight: bold;
+    padding: 8px 5px; /* Adjusted padding */
+    color: #333; /* Darker text */
+}
+
+#calendar-dates {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px; /* Slightly more gap */
+}
+
+#calendar-dates span {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 8px; /* Adjusted padding */
+    border-radius: 5px;
+    cursor: pointer;
+    color: #444;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#calendar-dates span:hover {
+    background-color: #f0f0f0;
+}
+
+#calendar-dates span.today {
+    background-color: #007bff;
+    color: white;
+}
+
+#calendar-dates span.selected {
+    background-color: #28a745;
+    color: white;
+}
+
+#calendar-dates span.empty {
+    background: none;
+    border: none;
+    cursor: default;
+}
+#show-calendar-btn {
+    background-color: #f8f9fa; /* Light background */
+    color: #495057; /* Dark text */
+    border: 1px solid #ced4da; /* Light border */
+    border-radius: 5px;
+    padding: 10px 15px;
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+#show-calendar-btn:hover {
+    background-color: #e9ecef; /* Slightly darker background on hover */
+    border-color: #adb5bd; /* Slightly darker border on hover */
+    color: #212529; /* Darker text on hover */
+}
+/* For Option 1 */
+#open-create-form:hover { background: #2563eb; transform: translateY(-1px); }
+#show-calendar-btn:hover { background: #f0f5ff; }
+
+/* For Option 2 */
