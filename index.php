@@ -942,6 +942,7 @@ if (isset($_GET['ajax'])) {
         </div>
     </div>
 <?php endif; ?>
+    <?php if ($tab === 'dropwire'): ?>
 
          <div class="calendar-container">
             
@@ -1085,50 +1086,10 @@ if (isset($_GET['ajax'])) {
             </div>
         </div>
     </div>
+         <?php endif; ?>
+           
     <script>
-        document.getElementById("create-form").addEventListener("submit", function (e) {
-    e.preventDefault(); // Prevent default form behavior
-
-    const serial = document.getElementById("serial-number").value;
-    const account = document.getElementById("account-number").value;
-    const processedBy = document.getElementById("processed-by").value;
-    const transactionDate = document.getElementById("transaction-date").value;
-    const dropWire = document.getElementById("drop-wire").value;
-
-    if (!serial || !account || !processedBy || !transactionDate || !dropWire) {
-        alert("Please fill in all required fields.");
-        return;
-    }
-
-    fetch("save_dropwire.php", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            serial_number: serial,
-            account_number: account,
-            processed_by: processedBy,
-            transaction_date: transactionDate,
-            drop_wire_consumed: dropWire
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert("Drop wire record saved successfully!");
-            document.getElementById("create-modal").style.display = "none";
-            // Optionally reload the table data
-            location.reload(); // refresh to show the new record
-        } else {
-            alert("Failed to save. Please try again.");
-        }
-    })
-    .catch(error => {
-        console.error("Error saving drop wire record:", error);
-        alert("An error occurred.");
-    });
-});
+        
       document.getElementById('serial-number').addEventListener('change', function () {
     const serial = this.value;
 
@@ -1152,10 +1113,53 @@ if (isset($_GET['ajax'])) {
             console.error('Error fetching transaction details:', error);
         });
 });
-        document.getElementById("open-create-form").addEventListener("click", () => {
+
+// ✅ SUBMIT handler para sa form
+document.getElementById('create-form').addEventListener('submit', function (e) {
+    e.preventDefault(); // 💥 Para di mag reload!
+
+    const serialNumber = document.getElementById('serial-number').value;
+    const accountNumber = document.getElementById('account-number').value;
+    const processedBy = document.getElementById('processed-by').value;
+    const transactionDate = document.getElementById('transaction-date').value;
+    const dropWire = document.getElementById('drop-wire').value;
+
+    fetch('save_dropwire.php', { // ✅ make sure it's 'save_dropwire.php'
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            serial_number: serialNumber,
+            account_number: accountNumber,
+            processed_by: processedBy,
+            transaction_date: transactionDate,
+            drop_wire_consumed: dropWire
+        })
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('Drop wire record created successfully!');
+            document.getElementById('create-form').reset();
+            document.getElementById('create-modal').style.display = 'none';
+            location.reload(); // Optional: reload to show new record
+        } else {
+            alert('Submission failed: ' + result.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error submitting form:', error);
+        alert('An error occurred while submitting the form.');
+    });
+});
+
+// Open modal
+document.getElementById("open-create-form").addEventListener("click", () => {
     document.getElementById("create-modal").style.display = "flex";
 });
 
+// Close modal
 document.querySelector(".close-btn").addEventListener("click", () => {
     document.getElementById("create-modal").style.display = "none";
 });
@@ -1327,6 +1331,7 @@ function updateTotal(data) {
     const footer = document.querySelector('.card-footer');
     footer.textContent = `Total: ${total.toFixed(2)} meters`;
 }
+
 document.addEventListener('DOMContentLoaded', function () {
     const table = document.querySelector('#dropwire-table');
 
@@ -1338,17 +1343,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const row = target.closest('tr');
             const id = target.dataset.id;
 
-            // Get table cells
-            const accountCell = row.children[1];
-            const serialCell = row.children[2];
-            const wireCell = row.children[4];
+            const wireCell = row.children[4]; // Only wire cell editable
+            const wireValue = wireCell.textContent.trim();
 
-            // Replace text with input fields
-            accountCell.innerHTML = `<input type="text" value="${accountCell.textContent.trim()}">`;
-            serialCell.innerHTML = `<input type="text" value="${serialCell.textContent.trim()}">`;
-            wireCell.innerHTML = `<input type="number" step="0.01" value="${wireCell.textContent.trim()}">`;
+            // Replace just wire cell with input
+            wireCell.innerHTML = `<input type="number" step="0.01" value="${wireValue}" style="width: 80px;">`;
 
-            // Switch Edit to Save
+            // Change Edit to Save
             target.textContent = 'Save';
             target.classList.remove('edit-button');
             target.classList.add('save-button');
@@ -1359,31 +1360,24 @@ document.addEventListener('DOMContentLoaded', function () {
             const row = target.closest('tr');
             const id = target.dataset.id;
 
-            const accountNumber = row.children[1].querySelector('input').value.trim();
-            const serialNumber = row.children[2].querySelector('input').value.trim();
-            const wireConsumed = row.children[4].querySelector('input').value.trim();
+            const wireInput = row.children[4].querySelector('input');
+            const wireConsumed = wireInput.value.trim();
 
-           fetch('update_dropwire.php', {
-    method: 'POST',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-        id: id,
-        accountNumber: accountNumber,
-        serialNumber: serialNumber,
-        wireConsumed: wireConsumed
-    })
-})
+            fetch('update_dropwire.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: id,
+                    wireConsumed: wireConsumed
+                })
+            })
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    // Replace inputs with new values
-                    row.children[1].textContent = accountNumber;
-                    row.children[2].textContent = serialNumber;
+                    // Replace input with updated value
                     row.children[4].textContent = parseFloat(wireConsumed).toFixed(2);
 
-                    // Switch Save to Edit
+                    // Switch Save back to Edit
                     target.textContent = 'Edit';
                     target.classList.remove('save-button');
                     target.classList.add('edit-button');
@@ -1399,6 +1393,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+
     </script>
 </body>
 </html>

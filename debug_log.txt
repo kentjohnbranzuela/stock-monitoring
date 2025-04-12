@@ -1,7 +1,5 @@
 Array
 (
-    [id] => 17
-    [accountNumber] => 456456456
-    [serialNumber] => 64565457
-    [wireConsumed] => 0.00
+    [id] => 36
+    [wireConsumed] => 7
 )
